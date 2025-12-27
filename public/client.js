@@ -174,6 +174,13 @@ document.getElementById('copyBtn').addEventListener('click', () => {
     }, 2000);
 });
 
+// Start game button
+document.getElementById('startGameBtn').addEventListener('click', () => {
+    if (currentRoomId && socket && isConnected) {
+        socket.emit('start-game', currentRoomId);
+    }
+});
+
 // Restart game
 document.getElementById('restartBtn').addEventListener('click', () => {
     if (currentRoomId && socket) {
@@ -189,6 +196,7 @@ socket.on('player-name', (name) => {
 socket.on('players-update', (players) => {
     const playersList = document.getElementById('playersList');
     const playerCount = document.getElementById('playerCount');
+    const startGameBtn = document.getElementById('startGameBtn');
     
     playerCount.textContent = players.length;
     playersList.innerHTML = '';
@@ -202,6 +210,13 @@ socket.on('players-update', (players) => {
         }
         playersList.appendChild(li);
     });
+    
+    // Show start game button if at least 2 players are in the room
+    if (players.length >= 2 && hasJoined && isConnected) {
+        startGameBtn.classList.remove('hidden');
+    } else {
+        startGameBtn.classList.add('hidden');
+    }
 });
 
 socket.on('game-status', (data) => {
@@ -214,6 +229,7 @@ socket.on('game-start', (data) => {
     const gameArea = document.getElementById('gameArea');
     const roleDisplay = document.getElementById('roleDisplay');
     const numberDisplay = document.getElementById('numberDisplay');
+    const turnOrderDisplay = document.getElementById('turnOrderDisplay');
     const roleMessage = document.getElementById('roleMessage');
     
     gameArea.classList.remove('hidden');
@@ -230,19 +246,47 @@ socket.on('game-start', (data) => {
         numberDisplay.style.display = 'block';
     }
     
+    // Display turn order
+    if (data.turnOrder) {
+        const getOrdinal = (n) => {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+        const turnPositionText = getOrdinal(data.turnPosition);
+        turnOrderDisplay.textContent = `Turn Order: ${data.turnOrder} (You go ${turnPositionText})`;
+        turnOrderDisplay.style.display = 'block';
+    }
+    
+    // Hide start game button when game starts
+    const startGameBtn = document.getElementById('startGameBtn');
+    if (startGameBtn) {
+        startGameBtn.classList.add('hidden');
+    }
+    
     roleMessage.textContent = data.message;
 });
 
 socket.on('game-restarted', () => {
     const gameArea = document.getElementById('gameArea');
+    const startGameBtn = document.getElementById('startGameBtn');
+    
     gameArea.classList.add('hidden');
     
     const roleDisplay = document.getElementById('roleDisplay');
     const numberDisplay = document.getElementById('numberDisplay');
+    const turnOrderDisplay = document.getElementById('turnOrderDisplay');
     const roleMessage = document.getElementById('roleMessage');
     
     roleDisplay.textContent = '';
     numberDisplay.textContent = '';
+    turnOrderDisplay.textContent = '';
+    turnOrderDisplay.style.display = 'none';
     roleMessage.textContent = '';
+    
+    // Show start game button again after restart
+    if (startGameBtn) {
+        startGameBtn.classList.remove('hidden');
+    }
 });
 

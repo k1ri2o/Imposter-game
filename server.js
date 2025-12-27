@@ -27,7 +27,8 @@ io.on('connection', (socket) => {
         players: [],
         gameState: 'waiting',
         number: null,
-        roles: {}
+        roles: {},
+        turnOrder: []
       };
     }
 
@@ -50,19 +51,21 @@ io.on('connection', (socket) => {
     
     io.to(roomId).emit('players-update', rooms[roomId].players.map(p => p.name));
 
-    if (rooms[roomId].players.length === 3) {
+    // Update game status - waiting for players to be ready
+    io.to(roomId).emit('game-status', {
+      status: 'waiting',
+      message: `Waiting for players to be ready... (${rooms[roomId].players.length} player(s) joined)`
+    });
+  });
+
+  socket.on('start-game', (roomId) => {
+    if (rooms[roomId] && rooms[roomId].players.length >= 2) {
       startGame(roomId);
     } else {
       io.to(roomId).emit('game-status', {
         status: 'waiting',
-        message: `Waiting for ${3 - rooms[roomId].players.length} more player(s)...`
+        message: 'Need at least 2 players to start the game!'
       });
-    }
-  });
-
-  socket.on('start-game', (roomId) => {
-    if (rooms[roomId] && rooms[roomId].players.length === 3) {
-      startGame(roomId);
     }
   });
 
@@ -71,6 +74,7 @@ io.on('connection', (socket) => {
       rooms[roomId].gameState = 'waiting';
       rooms[roomId].number = null;
       rooms[roomId].roles = {};
+      rooms[roomId].turnOrder = [];
       io.to(roomId).emit('game-status', {
         status: 'waiting',
         message: 'Game reset. Ready to start!'
@@ -98,6 +102,7 @@ io.on('connection', (socket) => {
             room.gameState = 'waiting';
             room.number = null;
             room.roles = {};
+            room.turnOrder = [];
             io.to(roomId).emit('game-status', {
               status: 'waiting',
               message: 'A player left. Game reset.'
@@ -113,15 +118,27 @@ io.on('connection', (socket) => {
 
 function startGame(roomId) {
   const room = rooms[roomId];
-  if (!room || room.players.length !== 3) return;
+  if (!room || room.players.length < 2) return;
 
-  // Generate random number between 1-100
-  room.number = Math.floor(Math.random() * 100) + 1;
+  // Generate random number between 1-130
+  room.number = Math.floor(Math.random() * 130) + 1;
   room.gameState = 'playing';
 
-  // Randomly select imposter
-  const imposterIndex = Math.floor(Math.random() * 3);
+  // Randomly select imposter (only 1 imposter regardless of player count)
+  const imposterIndex = Math.floor(Math.random() * room.players.length);
   const imposterId = room.players[imposterIndex].id;
+
+  // Randomize turn order (shuffle players)
+  const shuffledPlayers = [...room.players];
+  for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+  }
+  room.turnOrder = shuffledPlayers.map((p, index) => ({
+    playerId: p.id,
+    playerName: p.name,
+    turnNumber: index + 1
+  }));
 
   // Assign roles
   room.players.forEach((player, index) => {
@@ -132,22 +149,40 @@ function startGame(roomId) {
     }
   });
 
-  // Send roles and number to each player
+  // Send roles, number, and turn order to each player
   room.players.forEach((player) => {
     const role = room.roles[player.id];
     const playerSocket = io.sockets.sockets.get(player.id);
     if (playerSocket) {
+      // Find this player's turn position
+      const turnInfo = room.turnOrder.find(t => t.playerId === player.id);
+      const turnPosition = turnInfo ? turnInfo.turnNumber : 0;
+      
+      // Build turn order message with proper ordinal suffixes
+      const getOrdinal = (n) => {
+        const s = ["th", "st", "nd", "rd"];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+      };
+      const turnOrderMessage = room.turnOrder.map(t => 
+        `${t.playerName} (${getOrdinal(t.turnNumber)})`
+      ).join(', ');
+      
       if (role === 'knower') {
         playerSocket.emit('game-start', {
           role: 'knower',
           number: room.number,
+          turnPosition: turnPosition,
+          turnOrder: turnOrderMessage,
           message: `You know the number! It's ${room.number}. Find the imposter!`
         });
       } else {
         playerSocket.emit('game-start', {
           role: 'imposter',
           number: null,
-          message: 'You are the IMPOSTER! You don\'t know the number. Blend in and don\'t get caught!'
+          turnPosition: turnPosition,
+          turnOrder: turnOrderMessage,
+          message: `You are the IMPOSTER! You don't know the number. Blend in and don't get caught!`
         });
       }
     }
