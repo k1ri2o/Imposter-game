@@ -31,6 +31,15 @@ io.on('connection', (socket) => {
       };
     }
 
+    // Check if player is already in the room to prevent duplicate joins
+    const existingPlayer = rooms[roomId].players.find(p => p.id === socket.id);
+    if (existingPlayer) {
+      // Player already in room, just send current state
+      socket.emit('player-name', existingPlayer.name);
+      io.to(roomId).emit('players-update', rooms[roomId].players.map(p => p.name));
+      return;
+    }
+
     const player = {
       id: socket.id,
       name: `Player ${rooms[roomId].players.length + 1}`

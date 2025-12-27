@@ -36,6 +36,7 @@ const socket = serverUrl !== 'YOUR_SERVER_URL_HERE' ? io(serverUrl, {
 let currentRoomId = null;
 let playerName = '';
 let isConnected = false;
+let hasJoined = false;
 
 // Connection status handlers
 if (socket) {
@@ -48,6 +49,15 @@ if (socket) {
     socket.on('disconnect', () => {
         console.log('Disconnected from server');
         isConnected = false;
+        hasJoined = false;
+        currentRoomId = null;
+        // Re-enable join button on disconnect
+        const joinBtn = document.getElementById('joinBtn');
+        if (joinBtn) {
+            joinBtn.disabled = false;
+            joinBtn.style.opacity = '1';
+            joinBtn.style.cursor = 'pointer';
+        }
         updateConnectionStatus('disconnected', 'Disconnected from server. Please refresh the page.');
     });
 
@@ -108,6 +118,10 @@ document.getElementById('joinBtn').addEventListener('click', () => {
         updateConnectionStatus('error', 'Not connected to server. Please wait and try again.');
         return;
     }
+    if (hasJoined) {
+        updateConnectionStatus('error', 'You have already joined a room!');
+        return;
+    }
     const roomId = document.getElementById('roomId').value.trim() || generateRoomId();
     joinRoom(roomId);
 });
@@ -121,7 +135,19 @@ function joinRoom(roomId) {
         updateConnectionStatus('error', 'Cannot join room: Server not configured.');
         return;
     }
+    if (hasJoined) {
+        return; // Already joined, prevent duplicate joins
+    }
+    
+    hasJoined = true;
     currentRoomId = roomId;
+    
+    // Disable join button to prevent multiple clicks
+    const joinBtn = document.getElementById('joinBtn');
+    joinBtn.disabled = true;
+    joinBtn.style.opacity = '0.6';
+    joinBtn.style.cursor = 'not-allowed';
+    
     socket.emit('join-room', roomId);
     setRoomIdInUrl(roomId);
     
