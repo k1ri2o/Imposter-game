@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imposter Number Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Imposter Number Game</h1>
+        
+        <div class="game-setup">
+            <div class="room-section">
+                <h2>Join or Create Room</h2>
+                <div class="input-group">
+                    <input type="text" id="roomId" placeholder="Enter room ID (or leave empty for new room)" maxlength="20">
+                    <button id="joinBtn">Join Room</button>
+                </div>
+                <div id="roomInfo" class="room-info hidden">
+                    <p>Room ID: <strong id="currentRoomId"></strong></p>
+                    <p>Share this link with your friends:</p>
+                    <div class="share-link">
+                        <input type="text" id="shareLink" readonly>
+                        <button id="copyBtn">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="players-section">
+                <h3>Players (<span id="playerCount">0</span>/3)</h3>
+                <ul id="playersList"></ul>
+            </div>
+        </div>
+
+        <div id="gameStatus" class="status-message"></div>
+
+        <div id="gameArea" class="game-area hidden">
+            <div class="role-card">
+                <h2>Your Role</h2>
+                <div id="roleDisplay" class="role-display"></div>
+                <div id="numberDisplay" class="number-display"></div>
+                <p id="roleMessage" class="role-message"></p>
+            </div>
+
+            <div class="actions">
+                <button id="restartBtn" class="restart-btn">Restart Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
+
