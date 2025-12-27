@@ -30,13 +30,43 @@ A simple multiplayer game where 2 players know a secret number (1-100) and 1 pla
 
 ## Deploy Online
 
-To share with friends, you can deploy this to:
-- **Heroku** (free tier available)
-- **Railway** (free tier available)
-- **Render** (free tier available)
-- **Glitch** (free, instant deploy)
+### Important: Two-Part Deployment Required
 
-Just push your code and set the PORT environment variable if needed.
+This game uses **WebSockets (Socket.IO)**, which requires a persistent server connection. **Vercel's serverless functions do not support WebSockets**, so you need to deploy in two parts:
+
+#### 1. Frontend (Static Files) - Vercel ✅
+- Deploy the `public` folder to Vercel
+- The `vercel.json` configuration is already set up
+- Update `public/config.js` or `public/client.js` with your server URL (see step 2)
+
+#### 2. Backend (Server) - Requires WebSocket Support ⚠️
+Deploy `server.js` to a platform that supports WebSockets:
+- **Railway** (recommended, free tier available)
+- **Render** (free tier available)
+- **Fly.io** (free tier available)
+- **Heroku** (paid plans only)
+
+After deploying the server, update the `serverUrl` in `public/client.js` to point to your server URL.
+
+### Quick Setup for Vercel + Railway
+
+1. **Deploy Server to Railway:**
+   ```bash
+   # Push your code to GitHub
+   # Connect Railway to your repo
+   # Railway will auto-detect and deploy
+   ```
+
+2. **Update Client Configuration:**
+   - Edit `public/client.js`
+   - Replace `YOUR_SERVER_URL_HERE` with your Railway server URL (e.g., `https://your-app.railway.app`)
+
+3. **Deploy Frontend to Vercel:**
+   ```bash
+   vercel
+   ```
+
+That's it! Your frontend on Vercel will connect to your server on Railway.
 
 ## Requirements
 

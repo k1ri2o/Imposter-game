@@ -1,6 +1,75 @@
-const socket = io();
+// Get server URL from environment or use current origin
+// IMPORTANT: Update the server URL below with your actual Socket.IO server URL
+// For Vercel deployment, you need to host the server separately (e.g., Railway, Render, Fly.io)
+const getServerUrl = () => {
+    // For local development, use current origin
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return window.location.origin;
+    }
+    
+    // For production, use configured server URL or default
+    // Update this URL to point to your Socket.IO server
+    const configuredUrl = window.ENV?.SOCKET_SERVER_URL;
+    if (configuredUrl) {
+        return configuredUrl;
+    }
+    
+    // Fallback - you MUST update this with your actual server URL
+    // Example: 'https://your-app-name.railway.app' or 'https://your-app.onrender.com'
+    return 'YOUR_SERVER_URL_HERE'; // ⚠️ UPDATE THIS WITH YOUR SERVER URL
+};
+
+const serverUrl = getServerUrl();
+
+// Check if server URL is configured
+if (serverUrl === 'YOUR_SERVER_URL_HERE') {
+    console.error('⚠️ Server URL not configured! Please update public/client.js with your server URL.');
+}
+
+const socket = serverUrl !== 'YOUR_SERVER_URL_HERE' ? io(serverUrl, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5
+}) : null;
+
 let currentRoomId = null;
 let playerName = '';
+let isConnected = false;
+
+// Connection status handlers
+if (socket) {
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        isConnected = true;
+        updateConnectionStatus('connected', 'Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        isConnected = false;
+        updateConnectionStatus('disconnected', 'Disconnected from server. Please refresh the page.');
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        isConnected = false;
+        updateConnectionStatus('error', 'Cannot connect to server. Please check if the server URL is correct and the server is running.');
+    });
+} else {
+    // Show error if socket is not initialized
+    window.addEventListener('DOMContentLoaded', () => {
+        updateConnectionStatus('error', '⚠️ Server URL not configured! Please update public/client.js with your server URL and redeploy.');
+    });
+}
+
+function updateConnectionStatus(status, message) {
+    const statusDiv = document.getElementById('gameStatus');
+    if (statusDiv) {
+        statusDiv.textContent = message;
+        statusDiv.className = `status-message ${status}`;
+    }
+}
 
 // Generate or get room ID from URL
 function getRoomIdFromUrl() {
@@ -18,14 +87,27 @@ function setRoomIdInUrl(roomId) {
 // Initialize
 window.addEventListener('DOMContentLoaded', () => {
     const urlRoomId = getRoomIdFromUrl();
-    if (urlRoomId) {
+    if (urlRoomId && socket) {
         document.getElementById('roomId').value = urlRoomId;
-        joinRoom(urlRoomId);
+        // Wait for connection before joining
+        if (isConnected) {
+            joinRoom(urlRoomId);
+        } else {
+            socket.once('connect', () => joinRoom(urlRoomId));
+        }
     }
 });
 
 // Join room
 document.getElementById('joinBtn').addEventListener('click', () => {
+    if (!socket) {
+        updateConnectionStatus('error', 'Server URL not configured! Please update the server URL in client.js and redeploy.');
+        return;
+    }
+    if (!isConnected) {
+        updateConnectionStatus('error', 'Not connected to server. Please wait and try again.');
+        return;
+    }
     const roomId = document.getElementById('roomId').value.trim() || generateRoomId();
     joinRoom(roomId);
 });
@@ -35,6 +117,10 @@ function generateRoomId() {
 }
 
 function joinRoom(roomId) {
+    if (!socket) {
+        updateConnectionStatus('error', 'Cannot join room: Server not configured.');
+        return;
+    }
     currentRoomId = roomId;
     socket.emit('join-room', roomId);
     setRoomIdInUrl(roomId);
@@ -64,7 +150,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 
 // Restart game
 document.getElementById('restartBtn').addEventListener('click', () => {
-    if (currentRoomId) {
+    if (currentRoomId && socket) {
         socket.emit('restart-game', currentRoomId);
     }
 });
