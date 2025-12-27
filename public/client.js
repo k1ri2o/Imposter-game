@@ -174,6 +174,21 @@ document.getElementById('copyBtn').addEventListener('click', () => {
     }, 2000);
 });
 
+// Two imposters toggle
+document.getElementById('twoImpostersToggle').addEventListener('change', (e) => {
+    if (currentRoomId && socket && isConnected) {
+        socket.emit('toggle-two-imposters', currentRoomId);
+    }
+});
+
+// Sync two imposters toggle state from server
+socket.on('two-imposters-toggle', (enabled) => {
+    const toggle = document.getElementById('twoImpostersToggle');
+    if (toggle) {
+        toggle.checked = enabled;
+    }
+});
+
 // Start game button
 document.getElementById('startGameBtn').addEventListener('click', () => {
     if (currentRoomId && socket && isConnected) {
@@ -197,6 +212,7 @@ socket.on('players-update', (players) => {
     const playersList = document.getElementById('playersList');
     const playerCount = document.getElementById('playerCount');
     const startGameBtn = document.getElementById('startGameBtn');
+    const twoImpostersToggle = document.getElementById('twoImpostersToggle');
     
     playerCount.textContent = players.length;
     playersList.innerHTML = '';
@@ -210,6 +226,16 @@ socket.on('players-update', (players) => {
         }
         playersList.appendChild(li);
     });
+    
+    // Enable/disable two imposters toggle based on player count
+    if (players.length >= 4 && hasJoined && isConnected) {
+        twoImpostersToggle.disabled = false;
+    } else {
+        twoImpostersToggle.disabled = true;
+        if (players.length < 4) {
+            twoImpostersToggle.checked = false;
+        }
+    }
     
     // Show start game button if at least 2 players are in the room
     if (players.length >= 2 && hasJoined && isConnected) {

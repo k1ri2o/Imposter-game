@@ -28,7 +28,8 @@ io.on('connection', (socket) => {
         gameState: 'waiting',
         number: null,
         roles: {},
-        turnOrder: []
+        turnOrder: [],
+        twoImpostersEnabled: false
       };
     }
 
@@ -37,6 +38,7 @@ io.on('connection', (socket) => {
     if (existingPlayer) {
       // Player already in room, just send current state
       socket.emit('player-name', existingPlayer.name);
+      socket.emit('two-imposters-toggle', rooms[roomId].twoImpostersEnabled);
       io.to(roomId).emit('players-update', rooms[roomId].players.map(p => p.name));
       return;
     }
@@ -48,6 +50,7 @@ io.on('connection', (socket) => {
 
     rooms[roomId].players.push(player);
     socket.emit('player-name', player.name);
+    socket.emit('two-imposters-toggle', rooms[roomId].twoImpostersEnabled);
     
     io.to(roomId).emit('players-update', rooms[roomId].players.map(p => p.name));
 
@@ -56,6 +59,13 @@ io.on('connection', (socket) => {
       status: 'waiting',
       message: `Waiting for players to be ready... (${rooms[roomId].players.length} player(s) joined)`
     });
+  });
+
+  socket.on('toggle-two-imposters', (roomId) => {
+    if (rooms[roomId]) {
+      rooms[roomId].twoImpostersEnabled = !rooms[roomId].twoImpostersEnabled;
+      io.to(roomId).emit('two-imposters-toggle', rooms[roomId].twoImpostersEnabled);
+    }
   });
 
   socket.on('start-game', (roomId) => {
@@ -124,9 +134,20 @@ function startGame(roomId) {
   room.number = Math.floor(Math.random() * 130) + 1;
   room.gameState = 'playing';
 
-  // Randomly select imposter (only 1 imposter regardless of player count)
-  const imposterIndex = Math.floor(Math.random() * room.players.length);
-  const imposterId = room.players[imposterIndex].id;
+  // Determine number of imposters (1 or 2)
+  let numImposters = 1;
+  if (room.twoImpostersEnabled && room.players.length >= 4) {
+    // Random chance for 2 imposters (50% chance)
+    numImposters = Math.random() < 0.5 ? 1 : 2;
+  }
+
+  // Randomly select imposters
+  const shuffledForImposter = [...room.players];
+  for (let i = shuffledForImposter.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledForImposter[i], shuffledForImposter[j]] = [shuffledForImposter[j], shuffledForImposter[i]];
+  }
+  const imposterIds = shuffledForImposter.slice(0, numImposters).map(p => p.id);
 
   // Randomize turn order (shuffle players)
   const shuffledPlayers = [...room.players];
@@ -142,7 +163,7 @@ function startGame(roomId) {
 
   // Assign roles
   room.players.forEach((player, index) => {
-    if (player.id === imposterId) {
+    if (imposterIds.includes(player.id)) {
       room.roles[player.id] = 'imposter';
     } else {
       room.roles[player.id] = 'knower';
