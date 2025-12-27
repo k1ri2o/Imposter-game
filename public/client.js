@@ -16,7 +16,7 @@ const getServerUrl = () => {
     
     // Fallback - you MUST update this with your actual server URL
     // Example: 'https://your-app-name.railway.app' or 'https://your-app.onrender.com'
-    return 'YOUR_SERVER_URL_HERE'; // ⚠️ UPDATE THIS WITH YOUR SERVER URL
+    return 'https://imposter-game-production-769d.up.railway.app';
 };
 
 const serverUrl = getServerUrl();
